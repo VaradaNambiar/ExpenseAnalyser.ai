@@ -1,6 +1,8 @@
 import os
 import re
 from pathlib import Path
+
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 
 import pdfplumber
@@ -38,12 +40,34 @@ if __name__ == "__main__":
                     if date_pattern.match(clean_line):
                         lines.append(clean_line)
 
+    categories = ["Transportation", "Home", "Health", "Entertainment", "Vacation", "EatOut"]
+    category_rules = (
+        "Transportation - Uber, Ola, Cab, Bus, Train; "
+        "Home - Groceries, Rent, Utilities; "
+        "Health - Pharmacy, Doctor, Hospital, sports equipments, medical tests; "
+        "Entertainment - Movies, Concerts, Games, events tickets; "
+        "Vacation - Hotels, Resorts, Travel Packages, flights; "
+        "EatOut - Zomato, Swiggy, restaurants, cafes, bars, pubs, food delivery services"
+    )
+
     llm = ChatOllama(model="llama3.1:8b", temperature=0)
-    system_msg = "You are a financial assistant. Categorize the following transactions into one of the following categories: Travel, Home essentials, or Health. Only respond with the category name and the amount. The provided line could contain other details too like date, transaction number, points in addition to rate."
 
-    for t in lines:
-        input = f"{system_msg}\n\nTransaction: {t}"
-        response = llm.invoke(input)
-        print(response.content)
+    transactions_text = "\n".join(f"{i + 1}. {txn}" for i, txn in enumerate(lines))
+    system_prompt = (
+        "You are a financial assistant. Categorize each transaction strictly into one of these categories: "
+        f"{categories}. "
+        f"Category rules: {category_rules}. "
+        "If a transaction is unclear, return 'Uncategorized'. "
+        "Use only the transaction strings below. Do not invent rows or categories."
+    )
+    user_prompt = (
+        "Categorize the transactions and return a compact table with Category and Total.\n\n"
+        f"Transactions:\n{transactions_text}"
+    )
 
+    response = llm.invoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt),
+    ])
+    print(response.content)
 
