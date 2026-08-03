@@ -13,11 +13,11 @@ from dotenv import load_dotenv
 if __name__ == "__main__":
     load_dotenv(dotenv_path=Path(__file__).resolve().parent / "passwords.env")
 
-    pdf_path = Path(__file__).resolve().parent / "icici_cc_statement.pdf"
-    password = os.getenv("ICICI_SAPHIRO_CC")
+    pdf_path = Path(__file__).resolve().parent / "Scapia_July.pdf"
+    password = os.getenv("SCAPIA")
 
     if not password:
-        raise RuntimeError("ICICI_SAPHIRO_CC was not loaded. Check passwords.env.")
+        raise RuntimeError("SCAPIA was not loaded. Check passwords.env.")
 
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found at {pdf_path}")
@@ -40,14 +40,19 @@ if __name__ == "__main__":
                     if date_pattern.match(clean_line):
                         lines.append(clean_line)
 
-    categories = ["Transportation", "Home", "Health", "Entertainment", "Vacation", "EatOut"]
+    categories = ["Transportation", "Home", "Health", "Entertainment", "Vacation", "EatOut", "Uncategorized"]
+    local_grocery_merchants = (
+        "transactions that have indian people names such as Nandkishor, ParmeshwarGupta, Bherulal"
+    )
     category_rules = (
         "Transportation - Uber, Ola, Cab, Bus, Train; "
-        "Home - Groceries, Rent, Utilities; "
+        "Home -  Rent, Electricity, Gas, Airtel(wifi), snabbit, urbancompany, Rentomojo; "
+        f"Groceries - local grocery merchant {local_grocery_merchants}, Dmart, BigBasket, Amazon Fresh, Flipkart Grocery; "
         "Health - Pharmacy, Doctor, Hospital, sports equipments, medical tests; "
         "Entertainment - Movies, Concerts, Games, events tickets; "
         "Vacation - Hotels, Resorts, Travel Packages, flights; "
-        "EatOut - Zomato, Swiggy, restaurants, cafes, bars, pubs, food delivery services"
+        "EatOut - Zomato, Swiggy, restaurants, cafes, bars, pubs, food delivery services, hospitality services; "
+        "Uncategorized - Any transaction that does not fit into the above categories and/or unknown transactions"
     )
 
     llm = ChatOllama(model="llama3.1:8b", temperature=0)
@@ -57,8 +62,11 @@ if __name__ == "__main__":
         "You are a financial assistant. Categorize each transaction strictly into one of these categories: "
         f"{categories}. "
         f"Category rules: {category_rules}. "
-        "If a transaction is unclear, return 'Uncategorized'. "
+        "If a transaction is unclear, put them under 'Uncategorized'. "
         "Use only the transaction strings below. Do not invent rows or categories."
+        "Do not double count transactions in multiple categories."
+        "Create a note on credits separately. Create another note on Uncategorized transactions separately.  " #Ask what the user wants to do with Uncategorized transactions.
+        "Also give a split up of what transactions were categorized under each category and the total amount spent in each category. "
     )
     user_prompt = (
         "Categorize the transactions and return a compact table with Category and Total.\n\n"
