@@ -9,6 +9,58 @@ import pdfplumber
 from dotenv import load_dotenv
 
 
+def normalize_text(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+def classify_by_merchant(transaction: str) -> str | None:
+    text = normalize_text(transaction)
+    if not text:
+        return None
+
+    eat_out_markers = [
+        "zomato", "swiggy", "uber eats", "foodpanda", "dominos", "pizza hut",
+        "mcdonalds", "kfc", "subway", "restaurant", "restaurants", "cafe", "cafes",
+        "coffee", "bakery", "bar", "pub", "lounge", "food delivery",
+        "hospitality", "hospitality services", "dining", "tandoor", "bistro"
+    ]
+    health_markers = [
+        "pharmacy", "chemist", "doctor", "clinic", "hospital", "medical", "diagnostic",
+        "pathology", "lab test", "optical", "dentist"
+    ]
+    transportation_markers = [
+        "uber", "ola", "cab", "bus", "train", "metro", "airport taxi",
+        "railway", "auto"
+    ]
+    entertainment_markers = [
+        "movie", "movies", "cinema", "theatre", "concert", "tickets", "game",
+        "streaming", "spotify", "netflix", "bookmyshow", "event"
+    ]
+    home_markers = [
+        "rent", "electricity", "gas", "airtel", "wifi", "snabbit", "urbancompany",
+        "rentomojo", "maintenance", "apartment"
+    ]
+    vacation_markers = [
+        "hotel", "resort", "travel", "flight", "airline", "booking", "staycation"
+    ]
+
+    # Exact merchant matches override fuzzy semantic guesses.
+    if any(marker in text for marker in eat_out_markers):
+        return "EatOut"
+    if any(marker in text for marker in health_markers):
+        # Avoid false positives like 'hospitality' which contains 'hospital' as a substring.
+        if "hospitality" in text:
+            return "EatOut"
+        return "Health"
+    if any(marker in text for marker in transportation_markers):
+        return "Transportation"
+    if any(marker in text for marker in entertainment_markers):
+        return "Entertainment"
+    if any(marker in text for marker in home_markers):
+        return "Home"
+    if any(marker in text for marker in vacation_markers):
+        return "Vacation"
+    return None
+
 
 if __name__ == "__main__":
     load_dotenv(dotenv_path=Path(__file__).resolve().parent / "passwords.env")
@@ -62,10 +114,13 @@ if __name__ == "__main__":
         "You are a financial assistant. Categorize each transaction strictly into one of these categories: "
         f"{categories}. "
         f"Category rules: {category_rules}. "
+        "Critical precedence rules: exact merchant names override semantic guesses. "
+        "If a transaction contains a known food/delivery/hospitality merchant such as Zomato, Swiggy, restaurant, cafe, bar, pub, food delivery, or hospitality services, classify it as 'EatOut' even if the word 'hospital' appears inside a larger word like 'hospitality'. "
+        "Health only applies to actual medical merchants such as pharmacy, doctor, clinic, hospital, diagnostic, lab test. Do not classify 'hospitality' as Health. "
         "If a transaction is unclear, put them under 'Uncategorized'. "
         "Use only the transaction strings below. Do not invent rows or categories."
         "Do not double count transactions in multiple categories."
-        "Create a note on credits separately. Create another note on Uncategorized transactions separately.  " #Ask what the user wants to do with Uncategorized transactions.
+        "Create a note on credits separately. Create another note on Uncategorized transactions separately.  "
         "Also give a split up of what transactions were categorized under each category and the total amount spent in each category. "
     )
     user_prompt = (
@@ -73,9 +128,77 @@ if __name__ == "__main__":
         f"Transactions:\n{transactions_text}"
     )
 
-    response = llm.invoke([
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt),
-    ])
-    print(response.content)
+    eat_out_transactions = []
+    health_transactions = []
+    transportation_transactions = []
+    entertainment_transactions = []
+    home_transactions = []
+    vacation_transactions = []
+    uncategorized_transactions = []
+    for transaction in lines:
+        override = classify_by_merchant(transaction)
+        if override:
+            if override == "EatOut":
+                eat_out_transactions.append(transaction)
+            elif override == "Health":
+                health_transactions.append(transaction)
+            elif override == "Transportation":
+                transportation_transactions.append(transaction)
+            elif override == "Entertainment":
+                entertainment_transactions.append(transaction)
+            elif override == "Home":
+                home_transactions.append(transaction)
+            elif override == "Vacation":
+                vacation_transactions.append(transaction)
+            continue
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=f"Categorize this single transaction strictly to one category: {transaction}\nReturn only the category name."),
+        ])
+        category = response.content.strip().strip("`\n\r").strip()
+        if category == "EatOut":
+            eat_out_transactions.append(transaction)
+        elif category == "Health":
+            health_transactions.append(transaction)
+        elif category == "Transportation":
+            transportation_transactions.append(transaction)
+        elif category == "Entertainment":
+            entertainment_transactions.append(transaction)
+        elif category == "Home":
+            home_transactions.append(transaction)
+        elif category == "Vacation":
+            vacation_transactions.append(transaction)
+        elif category == "Uncategorized":
+            uncategorized_transactions.append(transaction)
+
+
+    print("EatOut Transactions:")
+    for transaction in eat_out_transactions:
+        print(transaction)
+
+    print("\nHealth Transactions:")
+    for transaction in health_transactions:
+        print(transaction)
+
+    print("\nTransportation Transactions:")
+    for transaction in transportation_transactions:
+        print(transaction)  
+
+    print("\nEntertainment Transactions:")
+    for transaction in entertainment_transactions:
+        print(transaction)
+
+    print("\nHome Transactions:")
+    for transaction in home_transactions:
+        print(transaction)
+
+    print("\nVacation Transactions:")
+    for transaction in vacation_transactions:   
+        print(transaction) 
+
+    print("\nUncategorized Transactions:")
+    for transaction in uncategorized_transactions:
+        print(transaction)
+
+
 
