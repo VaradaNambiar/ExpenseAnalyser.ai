@@ -235,15 +235,27 @@ if __name__ == "__main__":
         print(transaction)
 
     print("\nSummary of Total Amounts Spent in Each Category:")
-    print(f"Total EatOut: {sum(eat_out_transactions)}") 
-    print(f"Total Health: {sum(health_transactions)}")
-    print(f"Total Transportation: {sum(transportation_transactions)}")      
-    print(f"Total Entertainment: {sum(entertainment_transactions)}")
-    print(f"Total Home: {sum(home_transactions)}")
-    print(f"Total Groceries: {sum(groceries_transactions)}")
-    print(f"Total Shopping: {sum(shopping_transactions)}")
-    print(f"Total Vacation: {sum(vacation_transactions)}")
-    print(f"Total Uncategorized: {sum(uncategorized_transactions)}")
 
-    
+    total_eat_out = sum(eat_out_transactions)
+    total_health = sum(health_transactions)
+    total_transportation = sum(transportation_transactions) 
+    total_entertainment = sum(entertainment_transactions)
+    total_home = sum(home_transactions)
+    total_groceries = sum(groceries_transactions)
+    total_shopping = sum(shopping_transactions)
+    total_vacation = sum(vacation_transactions)
+    total_uncategorized = sum(uncategorized_transactions)
+    print(f"Total EatOut: {total_eat_out}") 
+    print(f"Total Health: {total_health}")
+    print(f"Total Transportation: {total_transportation}")      
+    print(f"Total Entertainment: {total_entertainment}")
+    print(f"Total Home: {total_home}")
+    print(f"Total Groceries: {total_groceries}")
+    print(f"Total Shopping: {total_shopping}")
+    print(f"Total Vacation: {total_vacation}")
+    print(f"Total Uncategorized: {total_uncategorized}")
+
+    print("\nOverall Total Amount Spent: " , total_eat_out + total_health + total_transportation + total_entertainment + total_home + total_groceries + total_shopping + total_vacation + total_uncategorized)
+
+
 
