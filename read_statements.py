@@ -8,19 +8,30 @@ from langchain_ollama import ChatOllama
 import pdfplumber
 from dotenv import load_dotenv
 
+
+def parse_signed_amount(transaction: str) -> float:
+    amount_match = re.search(r"[₹]\s*([\d,]+(?:\.\d{1,2})?)", transaction)
+    if not amount_match:
+        # Some statements omit the currency symbol. Prefer decimal values so
+        # dates and trailing reference or reward-point values are not selected.
+        amount_matches = list(re.finditer(r"(?<![\d/-])[+\-]?\s*([\d,]+\.\d{1,2})(?!\d)", transaction))
+        amount_match = amount_matches[-1] if amount_matches else None
+    if not amount_match:
+        raise ValueError(f"No amount found in transaction: {transaction}")
+
+    amount = float(amount_match.group(1).replace(",", ""))
+    prefix = transaction[:amount_match.end()].lower()
+    is_prev_bill_payment = "billpayment" in prefix and "+" in prefix
+    if is_prev_bill_payment:
+        return 0.0 # skip previous bill payments as they are not actual expenses
+    is_credit = "refund" in prefix and "+" in prefix
+    return amount if is_credit else -amount
+
+
 def sum(transactions : list[str]) -> float:
     total = 0.0
     for transaction in transactions:
-        system_prompt = (
-            "You are a financial assistant. Extract the amount spent from the transaction string. Put + for credits and - for debits and return only the amount as a float. Do not include any other text or explanation. ")
-        user_prompt = (
-            f"Transaction: {transaction}\n")
-        llm = ChatOllama(model="llama3.1:8b", temperature=0)
-        response = llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt)
-        ])
-        amount = float(response.content.strip().strip("`\n\r").strip())
+        amount = parse_signed_amount(transaction)
         total += amount
     return total
 
@@ -76,19 +87,7 @@ def classify_by_merchant(transaction: str) -> str | None:
         return "Vacation"
     return None
 
-
-if __name__ == "__main__":
-    load_dotenv(dotenv_path=Path(__file__).resolve().parent / "passwords.env")
-
-    pdf_path = Path(__file__).resolve().parent / "Scapia_July.pdf"
-    password = os.getenv("SCAPIA")
-
-    if not password:
-        raise RuntimeError("SCAPIA was not loaded. Check passwords.env.")
-
-    if not pdf_path.exists():
-        raise FileNotFoundError(f"PDF not found at {pdf_path}")
-
+def get_transatctions_from_pdf(pdf_path: Path, password: str) -> list[str]:
     # Regex: Starts with a date (e.g., 01/15/2024 or 15-Jan-2024)
     date_pattern = re.compile(
         r"^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}-[A-Za-z]{3}-\d{2,4})"
@@ -107,6 +106,22 @@ if __name__ == "__main__":
                     if date_pattern.match(clean_line):
                         lines.append(clean_line)
 
+    return lines
+
+
+if __name__ == "__main__":
+    load_dotenv(dotenv_path=Path(__file__).resolve().parent / "passwords.env")
+
+    pdf_path = Path(__file__).resolve().parent / "Scapia_July.pdf"
+    password = os.getenv("SCAPIA")
+
+    if not password:
+        raise RuntimeError("SCAPIA was not loaded. Check passwords.env.")
+
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"PDF not found at {pdf_path}")
+
+    lines = get_transatctions_from_pdf(pdf_path, password)
     categories = ["Transportation", "Home", "Groceries", "Health", "Entertainment", "Vacation", "EatOut", "Uncategorized"]
     local_grocery_merchants = (
         "transactions that have indian people names such as Nandkishor, ParmeshwarGupta, Bherulal"
