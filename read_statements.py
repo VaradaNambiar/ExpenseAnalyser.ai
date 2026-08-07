@@ -8,6 +8,21 @@ from langchain_ollama import ChatOllama
 import pdfplumber
 from dotenv import load_dotenv
 
+def sum(transactions : list[str]) -> float:
+    total = 0.0
+    for transaction in transactions:
+        system_prompt = (
+            "You are a financial assistant. Extract the amount spent from the transaction string. Put + for credits and - for debits and return only the amount as a float. Do not include any other text or explanation. ")
+        user_prompt = (
+            f"Transaction: {transaction}\n")
+        llm = ChatOllama(model="llama3.1:8b", temperature=0)
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ])
+        amount = float(response.content.strip().strip("`\n\r").strip())
+        total += amount
+    return total
 
 def normalize_text(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
@@ -92,17 +107,18 @@ if __name__ == "__main__":
                     if date_pattern.match(clean_line):
                         lines.append(clean_line)
 
-    categories = ["Transportation", "Home", "Health", "Entertainment", "Vacation", "EatOut", "Uncategorized"]
+    categories = ["Transportation", "Home", "Groceries", "Health", "Entertainment", "Vacation", "EatOut", "Uncategorized"]
     local_grocery_merchants = (
         "transactions that have indian people names such as Nandkishor, ParmeshwarGupta, Bherulal"
     )
     category_rules = (
         "Transportation - Uber, Ola, Cab, Bus, Train; "
         "Home -  Rent, Electricity, Gas, Airtel(wifi), snabbit, urbancompany, Rentomojo; "
-        f"Groceries - local grocery merchant {local_grocery_merchants}, Dmart, BigBasket, Amazon Fresh, Flipkart Grocery; "
+        f"Groceries - local grocery merchant {local_grocery_merchants}, Dmart, BigBasket, AmazonFresh, FlipkartGrocery; "
+        "Shopping - Amazon, Flipkart, Myntra, Ajio, Nykaa, TataCliq, Snapdeal;"
         "Health - Pharmacy, Doctor, Hospital, sports equipments, medical tests; "
         "Entertainment - Movies, Concerts, Games, events tickets; "
-        "Vacation - Hotels, Resorts, Travel Packages, flights; "
+        "Vacation - Hotels, Resorts, Travel Packages, flights, indigo; "
         "EatOut - Zomato, Swiggy, restaurants, cafes, bars, pubs, food delivery services, hospitality services; "
         "Uncategorized - Any transaction that does not fit into the above categories and/or unknown transactions"
     )
@@ -133,6 +149,8 @@ if __name__ == "__main__":
     transportation_transactions = []
     entertainment_transactions = []
     home_transactions = []
+    shopping_transactions = []
+    groceries_transactions = []
     vacation_transactions = []
     uncategorized_transactions = []
     for transaction in lines:
@@ -148,6 +166,10 @@ if __name__ == "__main__":
                 entertainment_transactions.append(transaction)
             elif override == "Home":
                 home_transactions.append(transaction)
+            elif override == "Groceries":
+                groceries_transactions.append(transaction)
+            elif override == "Shopping":
+                shopping_transactions.append(transaction)
             elif override == "Vacation":
                 vacation_transactions.append(transaction)
             continue
@@ -166,6 +188,10 @@ if __name__ == "__main__":
             entertainment_transactions.append(transaction)
         elif category == "Home":
             home_transactions.append(transaction)
+        elif category == "Groceries":
+            groceries_transactions.append(transaction)
+        elif category == "Shopping":
+            shopping_transactions.append(transaction)
         elif category == "Vacation":
             vacation_transactions.append(transaction)
         elif category == "Uncategorized":
@@ -192,6 +218,14 @@ if __name__ == "__main__":
     for transaction in home_transactions:
         print(transaction)
 
+    print("\nGroceries Transactions:")
+    for transaction in groceries_transactions:
+        print(transaction)
+
+    print("\nShopping Transactions:")
+    for transaction in shopping_transactions:
+        print(transaction)
+
     print("\nVacation Transactions:")
     for transaction in vacation_transactions:   
         print(transaction) 
@@ -200,5 +234,16 @@ if __name__ == "__main__":
     for transaction in uncategorized_transactions:
         print(transaction)
 
+    print("\nSummary of Total Amounts Spent in Each Category:")
+    print(f"Total EatOut: {sum(eat_out_transactions)}") 
+    print(f"Total Health: {sum(health_transactions)}")
+    print(f"Total Transportation: {sum(transportation_transactions)}")      
+    print(f"Total Entertainment: {sum(entertainment_transactions)}")
+    print(f"Total Home: {sum(home_transactions)}")
+    print(f"Total Groceries: {sum(groceries_transactions)}")
+    print(f"Total Shopping: {sum(shopping_transactions)}")
+    print(f"Total Vacation: {sum(vacation_transactions)}")
+    print(f"Total Uncategorized: {sum(uncategorized_transactions)}")
 
+    
 
