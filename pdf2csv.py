@@ -20,7 +20,7 @@ def get_password(pdf_path : str)-> str:
     except Exception as e:
         print("Trying to get passwrod from env")
         bank_password_dict = {
-            "sbi": "SBICARD_CC", "icici": "ICICI_CC", "scapia": "SCAPIA"}
+            "sbi": "SBICARD_CC", "icici": "ICICI_SAPHIRO_CC", "scapia": "SCAPIA"}
 
         if bank not in bank_password_dict:
             raise ValueError(f"Bank '{bank}' not recognized. Please enter a valid bank name.")
