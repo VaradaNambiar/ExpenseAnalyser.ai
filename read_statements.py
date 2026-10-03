@@ -1,13 +1,13 @@
 import os
 import re
 from pathlib import Path
+from sys import prefix
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 
 import pdfplumber
 from dotenv import load_dotenv
-
 
 def parse_signed_amount(transaction: str) -> float:
     amount_match = re.search(r"[₹]\s*([\d,]+(?:\.\d{1,2})?)", transaction)
@@ -21,10 +21,11 @@ def parse_signed_amount(transaction: str) -> float:
 
     amount = float(amount_match.group(1).replace(",", ""))
     prefix = transaction[:amount_match.end()].lower()
-    is_prev_bill_payment = "billpayment" in prefix and "+" in prefix
+    suffix_c = transaction[amount_match.end():].strip().lower().startswith("c")
+    is_prev_bill_payment = ("billpayment" in prefix and "+" in prefix ) or ("debit payment" in prefix)
     if is_prev_bill_payment:
         return 0.0 # skip previous bill payments as they are not actual expenses
-    is_credit = "refund" in prefix and "+" in prefix
+    is_credit = "refund" in prefix and "+" in prefix or suffix_c
     return amount if is_credit else -amount
 
 
@@ -86,13 +87,14 @@ def classify_by_merchant(transaction: str) -> str | None:
     if any(marker in text for marker in vacation_markers):
         return "Vacation"
     return None
-
+    
 def get_transatctions_from_pdf(pdf_path: Path, password: str) -> list[str]:
     # Regex: Starts with a date (e.g., 01/15/2024 or 15-Jan-2024)
     date_pattern = re.compile(
-        r"^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}-[A-Za-z]{3}-\d{2,4})"
+        r"^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}-[A-Za-z]{3}-\d{2,4} |\d{1,2}\s+[A-Za-z]{3}\s+\d{2,4})"
     )
     lines = []
+
     with pdfplumber.open(str(pdf_path), password=password) as pdf:
         for page in pdf.pages:
             # extract_text(layout=True) preserves exact horizontal spacing
