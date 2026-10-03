@@ -88,11 +88,16 @@ def classify_by_merchant(transaction: str) -> str | None:
         return "Vacation"
     return None
     
-def get_transatctions_from_pdf(pdf_path: Path, password: str) -> list[str]:
-    # Regex: Starts with a date (e.g., 01/15/2024 or 15-Jan-2024)
-    date_pattern = re.compile(
-        r"^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}-[A-Za-z]{3}-\d{2,4} |\d{1,2}\s+[A-Za-z]{3}\s+\d{2,4})"
-    )
+def get_transatctions_from_pdf(pdf_path: Path, password: str, is_sbi = False) -> list[str]:
+    date_pattern ='' # Regex: Starts with a date 
+    if not is_sbi:
+        #(e.g., 01/15/2024 or 15-Jan-2024)
+        date_pattern = re.compile(
+            r"^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}-[A-Za-z]{3}-\d{2,4})"
+        )
+    else:
+        # e.g. 15 Jan 2024
+        date_pattern = re.compile(r"\d{1,2}\s+[A-Za-z]{3}\s+\d{2,4}")
     lines = []
 
     with pdfplumber.open(str(pdf_path), password=password) as pdf:

@@ -1,26 +1,42 @@
 from read_statements import get_transatctions_from_pdf, classify_by_merchant, parse_signed_amount
 import csv
 import os
-
-from dotenv import load_dotenv
 from pathlib import Path
+import pdfplumber
+
+
+bank =""
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
+def get_password(pdf_path : str)-> str:
+    password = ""
+    print("Enter bank: ")
+    global bank
+    bank = input().lower()
 
-if __name__ == "__main__":
-    load_dotenv(dotenv_path=Path(__file__).resolve().parent / "passwords.env")
+    try:
+        pdfplumber.open(str(pdf_path))
+    except Exception as e:
+        print("Trying to get passwrod from env")
+        bank_password_dict = {
+            "sbi": "SBICARD_CC", "icici": "ICICI_CC", "scapia": "SCAPIA"}
 
-    pdf_path = Path(__file__).resolve().parent / "Scapia_July.pdf"
-    password = os.getenv("SCAPIA")
+        if bank not in bank_password_dict:
+            raise ValueError(f"Bank '{bank}' not recognized. Please enter a valid bank name.")
 
-    if not password:
-        raise RuntimeError("SCAPIA was not loaded. Check passwords.env.")
+        password_key = bank_password_dict[bank]
+        password = os.getenv(password_key)
 
-    if not pdf_path.exists():
-        raise FileNotFoundError(f"PDF not found at {pdf_path}")
+        if not password:
+             raise RuntimeError("password was not loaded. Check passwords.env.")
+    return password
 
-    lines = get_transatctions_from_pdf(pdf_path, password)
+
+def convert_transactions_pdf_to_csv(pdf_path: str):
+    password = get_password(pdf_path)
+    is_sbi = "sbi" in bank
+    lines = get_transatctions_from_pdf(pdf_path, password, is_sbi)
     categories = ["Transportation", "Home", "Groceries", "Health", "Entertainment", "Vacation", "EatOut", "Uncategorized"]
     local_grocery_merchants = (
         "transactions that have indian people names such as Nandkishor, ParmeshwarGupta, Bherulal"
